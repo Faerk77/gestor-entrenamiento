@@ -6,6 +6,8 @@ from tkinter import messagebox, simpledialog, ttk
 
 DATA_FILE = "entrenamiento_perfiles_multi.json"
 
+__version__ = "1.1.0"
+
 
 class SeleccionPerfilWindow:
 
@@ -353,7 +355,7 @@ class AppEntrenamiento:
 
   def __init__(self, root):
     self.root = root
-    self.root.title("Gestor de Entrenamiento y Progresión")
+    self.root.title(f"Gestor de Entrenamiento y Progresión v{__version__}")
 
     # Ventana fija, centrada y no redimensionable.
     ANCHO, ALTO = 880, 700
@@ -742,6 +744,13 @@ class AppEntrenamiento:
         command=lambda: self.agregar_ejercicio(rutina_nombre),
     )
     btn_agregar.pack(side=tk.RIGHT)
+
+    btn_reiniciar_rutina = ttk.Button(
+        header_frame,
+        text="↻ Reiniciar rutina",
+        command=lambda r=rutina_nombre: self.reiniciar_rutina(r),
+    )
+    btn_reiniciar_rutina.pack(side=tk.RIGHT, padx=(0, 5))
 
     container_canvas = tk.Canvas(frame, highlightthickness=0)
     scrollbar = ttk.Scrollbar(
@@ -1159,6 +1168,45 @@ class AppEntrenamiento:
       # Refresca contador (ej. 3/3 -> 3/4 y sale de FINALIZADO) y bloqueo.
       self.comprobar_y_avanzar_ejercicio(rutina_nombre, ejercicio)
 
+    def _reset_nucleo():
+      # Reinicio mecánico sin snapshot ni confirmación (lo usa también
+      # el reinicio de rutina). No toca registros ni pesos.
+      try:
+        detener_crono()
+      except Exception:
+        pass
+      if len(series_hechas) > base_series:
+        for w_extra in marca_labels[base_series:] + reps_widgets[base_series:]:
+          try:
+            w_extra.destroy()
+          except Exception:
+            pass
+        del marca_labels[base_series:]
+        del reps_widgets[base_series:]
+        del series_hechas[base_series:]
+        info["series"] = base_series
+        self.guardar_datos_actuales()
+        try:
+          btns_series_frame.grid_configure(columnspan=base_series)
+        except Exception:
+          pass
+      for i in range(len(series_hechas)):
+        series_hechas[i] = False
+        try:
+          marca_labels[i].config(text=f"○ Serie {i+1}", foreground="")
+        except Exception:
+          pass
+      for sp in reps_widgets:
+        try:
+          sp.config(state="normal")
+        except Exception:
+          pass
+        try:
+          sp.set(8)
+        except Exception:
+          pass
+      self.comprobar_y_avanzar_ejercicio(rutina_nombre, ejercicio)
+
     def restablecer_ejercicio():
       # Vuelve al valor por defecto: recorta series agregadas de más,
       # quita palomitas, repes en 8, crono en 00:00, sin FINALIZADO.
@@ -1173,10 +1221,6 @@ class AppEntrenamiento:
           return
       try:
         self.vars_activas_por_rutina[rutina_nombre].set(ejercicio)
-      except Exception:
-        pass
-      try:
-        detener_crono()
       except Exception:
         pass
       # Snapshot al registro lateral (FIFO máx. 4) antes de reiniciar.
@@ -1214,37 +1258,7 @@ class AppEntrenamiento:
           render_registro()
       except Exception:
         pass
-      if len(series_hechas) > base_series:
-        for w_extra in marca_labels[base_series:] + reps_widgets[base_series:]:
-          try:
-            w_extra.destroy()
-          except Exception:
-            pass
-        del marca_labels[base_series:]
-        del reps_widgets[base_series:]
-        del series_hechas[base_series:]
-        info["series"] = base_series
-        self.guardar_datos_actuales()
-        try:
-          btns_series_frame.grid_configure(columnspan=base_series)
-        except Exception:
-          pass
-      for i in range(len(series_hechas)):
-        series_hechas[i] = False
-        try:
-          marca_labels[i].config(text=f"○ Serie {i+1}", foreground="")
-        except Exception:
-          pass
-      for sp in reps_widgets:
-        try:
-          sp.config(state="normal")
-        except Exception:
-          pass
-        try:
-          sp.set(8)
-        except Exception:
-          pass
-      self.comprobar_y_avanzar_ejercicio(rutina_nombre, ejercicio)
+      _reset_nucleo()
 
     # Fila centrada con los botones de series (debajo de marcas y repes).
     btns_series_frame = ttk.Frame(series_frame)
@@ -1478,12 +1492,38 @@ class AppEntrenamiento:
         "btn_mas_serie": btn_mas_serie,
         "btn_reset_estado": btn_reset_estado,
         "btn_finalizar": btn_finalizar,
+        "reset_nucleo": _reset_nucleo,
         "cuerpo": cuerpo,
         "header_name": header_name,
         "header_btn": header_btn,
         "colapsado": False,
         "alternar": alternar_colapso,
     }
+
+  def reiniciar_rutina(self, rutina_nombre):
+    # Reinicia todos los ejercicios de la pestaña sin borrar registros ni pesos.
+    refs_rutina = self.refs_por_rutina.get(rutina_nombre, {})
+    if not refs_rutina:
+      return
+    if not messagebox.askyesno(
+        "Reiniciar rutina",
+        f"¿Reiniciar todos los ejercicios de '{rutina_nombre}'?\n"
+        "Se conservan registros y pesos.",
+        parent=self.root,
+    ):
+      return
+    for ref in refs_rutina.values():
+      try:
+        ref["reset_nucleo"]()
+      except Exception:
+        pass
+    try:
+      primero = next(iter(refs_rutina))
+      self.vars_activas_por_rutina[rutina_nombre].set(primero)
+      self._mostrar_solo_activo(rutina_nombre)
+    except Exception:
+      pass
+    self.actualizar_estado_tarjetas()
 
   def _mostrar_solo_activo(self, rutina_nombre):
     # Oculta todas salvo la activa (las otras se pueden desplegar a mano).

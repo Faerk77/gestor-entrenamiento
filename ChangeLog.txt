@@ -1,0 +1,16 @@
+# ChangeLog — Gestor de Entrenamiento
+
+## [1.1.0] - 2026-10-13
+- Botón "↻ Reiniciar rutina" en cada pestaña: reinicia todos los ejercicios
+  de la rutina (palomitas fuera, repes en 8, crono detenido, series de más
+  recortadas a la base) sin borrar registros guardados ni pesos declarados.
+  Pide confirmación y deja activo el primer ejercicio.
+- Refactor: el reinicio de ejercicio (↻) ahora reusa el núcleo
+  `_reset_nucleo`, también usado por el reinicio de rutina.
+- Versión visible en el título de la ventana (`v1.1.0`).
+
+## [1.0.0] - 2026-10-12
+- Primera versión publicada en GitHub: perfiles múltiples, rutinas en
+  pestañas reordenables, series con marcas visuales y contador de repes,
+  cronómetro con alarma, registros laterales FIFO-4 con aviso de carga,
+  historial de peso corporal FIFO-5, tarjetas colapsables y scroll con rueda.
