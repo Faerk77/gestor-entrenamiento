@@ -6,7 +6,7 @@ from tkinter import messagebox, simpledialog, ttk
 
 DATA_FILE = "entrenamiento_perfiles_multi.json"
 
-__version__ = "1.1.0"
+__version__ = "1.1.1"
 
 
 class SeleccionPerfilWindow:
@@ -387,7 +387,8 @@ class AppEntrenamiento:
     self.iniciar_interfaz_principal()
 
   def _scroll_rueda(self, event):
-    # Rueda del mouse en toda la ventana: desplaza la rutina visible.
+    # Rueda del mouse en toda la ventana: desplaza la rutina visible,
+    # solo si hay contenido fuera de vista.
     try:
       if self.root.grab_current() is not None:
         return
@@ -396,6 +397,13 @@ class AppEntrenamiento:
       rutina = self._rutina_activa()
       cv = self.canvas_por_rutina.get(rutina) if rutina else None
       if cv is None:
+        return
+      try:
+        region = str(cv.cget("scrollregion") or "").split()
+        alto_contenido = float(region[3]) if len(region) == 4 else 0.0
+      except Exception:
+        return
+      if alto_contenido <= cv.winfo_height() + 1:
         return
       cv.yview_scroll(int(-1 * (event.delta / 120)), "units")
     except Exception:

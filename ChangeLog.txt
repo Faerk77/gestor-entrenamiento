@@ -1,5 +1,9 @@
 # ChangeLog — Gestor de Entrenamiento
 
+## [1.1.1] - 2026-10-13
+- Fix scroll con rueda: solo desplaza si el contenido excede lo visible
+  (antes movía la lista aun con todas las tarjetas ocultas).
+
 ## [1.1.0] - 2026-10-13
 - Botón "↻ Reiniciar rutina" en cada pestaña: reinicia todos los ejercicios
   de la rutina (palomitas fuera, repes en 8, crono detenido, series de más
