@@ -1,5 +1,17 @@
 # ChangeLog — Gestor de Entrenamiento
 
+## [1.3.0] - 2026-10-16
+- Modo Segundos: la carga pasa a tiempo. `Peso Actual (kg)` /
+  `Registrar Peso` cambian a `Segundos Actuales (segs)` /
+  `Registrar Segundos`, con historial `Anterior` y panel `Registro`,
+  ciclos y `Ver todos` en `segs`. El valor se sigue guardando en el
+  mismo campo `peso` para no romper datos existentes.
+- Sesión finalizada persistente por día: al completar un ejercicio se guarda
+  `estado_sesion {fecha, finalizado, valores}` y al reabrir la app el mismo
+  día aparece en verde `FINALIZADO ✔` con palomitas y valores. Solo se
+  reinicia con `↻` del ejercicio (o `↻ Reiniciar rutina` / `+ Serie` que
+  lo des-finaliza) o al abrir en fecha distinta (día nuevo).
+
 ## [1.2.0] - 2026-10-16
 - Modo individual por ejercicio Series/Segundos con botón `⏱ Modo` en cada
   tarjeta: cambia etiquetas `Serie/Series` a `Segundos`, objetivo a

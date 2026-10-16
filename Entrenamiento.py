@@ -6,7 +6,7 @@ from tkinter import messagebox, simpledialog, ttk
 
 DATA_FILE = "entrenamiento_perfiles_multi.json"
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 
 
 class SeleccionPerfilWindow:
@@ -469,6 +469,8 @@ class AppEntrenamiento:
   def _modo_info(info):
     # Modo por ejercicio: 'repes' (Series) o 'segs' (Segundos).
     # Compatibilidad: sin campo => repes.
+    # En modo segs la carga pasa a ser tiempo: 'Segundos Actuales' en vez de
+    # 'Peso Actual', y los registros guardan segundos en el mismo campo 'peso'.
     es_segs = info.get("modo", "repes") == "segs"
     if es_segs:
       return {
@@ -477,6 +479,10 @@ class AppEntrenamiento:
           "plur": "Segundos",
           "default_val": 20,
           "unidad": "segs",
+          "carga_nombre": "Segundos",
+          "carga_unidad": "segs",
+          "carga_titulo": "Segundos Actuales (segs):",
+          "carga_boton": "Registrar Segundos",
       }
     return {
         "es_segs": False,
@@ -484,6 +490,10 @@ class AppEntrenamiento:
         "plur": "Series",
         "default_val": 8,
         "unidad": "repes",
+        "carga_nombre": "Peso",
+        "carga_unidad": "kg",
+        "carga_titulo": "Peso Actual (kg):",
+        "carga_boton": "Registrar Peso",
     }
 
   def _toggle_modo(self, rutina_nombre, ej_nombre):
@@ -501,6 +511,41 @@ class AppEntrenamiento:
       info["repes"] = "10-12"
     self.guardar_datos_actuales()
     self.iniciar_interfaz_principal()
+
+  @staticmethod
+  def _hoy_str():
+    return datetime.now().strftime("%Y-%m-%d")
+
+  def _marcar_sesion_finalizada(self, info, valores):
+    # Persiste finalizado del día: sobrevive a cerrar/abrir la app el mismo día.
+    # Solo se limpia con reset manual o al abrir en fecha distinta.
+    info["estado_sesion"] = {
+        "fecha": self._hoy_str(),
+        "finalizado": True,
+        "valores": list(valores),
+    }
+
+  def _limpiar_sesion(self, info):
+    # Devuelve True si había algo que limpiar.
+    if "estado_sesion" in info:
+      info.pop("estado_sesion", None)
+      return True
+    return False
+
+  def _sesion_finalizada_hoy(self, info, num_series):
+    # True solo si está finalizado y la fecha es la de hoy. Día distinto => reinicia.
+    try:
+      est = info.get("estado_sesion", {})
+      if not est.get("finalizado"):
+        return False, []
+      if est.get("fecha") != self._hoy_str():
+        return False, []
+      vals = est.get("valores", [])
+      if len(vals) != int(num_series):
+        return False, []
+      return True, list(vals)
+    except Exception:
+      return False, []
 
   def _actualizar_ciclo_congelado(self, info):
     # Congela el último ciclo completado (4 registros seguidos al mismo peso).
@@ -971,11 +1016,12 @@ class AppEntrenamiento:
       else:
         _mdv = self._modo_info(info)
         _uplur = _mdv["plur"]
+        _vcuni = _mdv["carga_unidad"]
         for reg in reversed(hist):
           repes = reg.get("repes", [])
           ttk.Label(
               fr,
-              text=(f"{reg.get('fecha', '—')}  —  {reg.get('peso', 0)} kg"
+              text=(f"{reg.get('fecha', '—')}  —  {reg.get('peso', 0)} {_vcuni}"
                     f"  —  prom. {reg.get('promedio', 0)}"),
               font=("Arial", 9, "bold"),
           ).pack(anchor=tk.W, pady=(6, 0))
@@ -1018,10 +1064,11 @@ class AppEntrenamiento:
     def render_registro():
       _mdr = self._modo_info(info)
       _plur, _uni = _mdr["plur"], _mdr["unidad"]
+      _cnom, _cuni = _mdr["carga_nombre"], _mdr["carga_unidad"]
       hist = info.get("historial_series", [])
       if not hist:
         reg_fecha.config(text="Sin registros")
-        reg_peso.config(text="Peso: —")
+        reg_peso.config(text=f"{_cnom}: —")
         reg_prom.config(text="Promedio: —")
         reg_series.config(text=f"{_plur}: —")
         reg_aviso.config(text="")
@@ -1031,7 +1078,7 @@ class AppEntrenamiento:
       ult = hist[-1]
       repes = ult.get("repes", [])
       reg_fecha.config(text=str(ult.get("fecha", "—")))
-      reg_peso.config(text=f"Peso: {ult.get('peso', 0.0)} kg")
+      reg_peso.config(text=f"{_cnom}: {ult.get('peso', 0.0)} {_cuni}")
       reg_prom.config(text=f"Promedio: {ult.get('promedio', 0)} {_uni}")
       if repes:
         reg_series.config(text=_plur + ": " + " · ".join(str(r) for r in repes))
@@ -1063,7 +1110,7 @@ class AppEntrenamiento:
       cong = info.get("ciclo_congelado")
       if cong:
         reg_ciclo1.config(
-            text=(f"❄ {_f(cong.get('peso', 0))} kg — "
+            text=(f"❄ {_f(cong.get('peso', 0))} {_cuni} — "
                   f"{cong.get('registros', 4)} reg. — prom. {_f(cong.get('promedio', 0))}")
         )
       else:
@@ -1073,7 +1120,7 @@ class AppEntrenamiento:
         reg_ciclo2.config(text="")
       else:
         reg_ciclo2.config(
-            text=f"• {_f(peso_nuevo)} kg — {racha} reg. — prom. {_f(prom_total)}"
+            text=f"• {_f(peso_nuevo)} {_cuni} — {racha} reg. — prom. {_f(prom_total)}"
         )
       # Aviso solo con 4 registros nuevos al peso actual: si el peso cambió,
       # la racha se reinicia y el aviso desaparece hasta juntar 4 nuevos.
@@ -1158,6 +1205,21 @@ class AppEntrenamiento:
       reps_widgets.append(sp_reps)
       series_hechas.append(False)
 
+    # Restaurar finalizado del mismo día (persiste al cerrar/abrir).
+    # Día distinto => arranca reiniciado.
+    _fin_hoy, _vals_hoy = self._sesion_finalizada_hoy(info, num_series)
+    if _fin_hoy:
+      for i in range(num_series):
+        series_hechas[i] = True
+        try:
+          marca_labels[i].config(text=f"✔ {et_sing} {i+1}", foreground="green")
+        except Exception:
+          pass
+        try:
+          reps_widgets[i].set(_vals_hoy[i])
+        except Exception:
+          pass
+
     def finalizar_siguiente_serie():
       # Marca 1 a 1 la primera serie pendiente: palomita + bloquea sus repes.
       # Última serie: sin crono, finaliza el ejercicio y avanza.
@@ -1203,6 +1265,11 @@ class AppEntrenamiento:
           while len(hist_s) > 4:
             hist_s.pop(0)
           self._actualizar_ciclo_congelado(info)
+          # Persistir finalizado del día (sobrevive a cerrar la app).
+          try:
+            self._marcar_sesion_finalizada(info, repes_vals)
+          except Exception:
+            pass
           self.guardar_datos_actuales()
         except Exception:
           pass
@@ -1239,6 +1306,12 @@ class AppEntrenamiento:
       series_hechas.append(False)
       btns_series_frame.grid_configure(columnspan=n + 1)
       info["series"] = len(series_hechas)
+      # Ya no está finalizado (3/3 -> 3/4): limpiar sesión persistida.
+      try:
+        if self._limpiar_sesion(info):
+          pass
+      except Exception:
+        pass
       self.guardar_datos_actuales()
       # Refresca contador (ej. 3/3 -> 3/4 y sale de FINALIZADO) y bloqueo.
       self.comprobar_y_avanzar_ejercicio(rutina_nombre, ejercicio)
@@ -1246,8 +1319,14 @@ class AppEntrenamiento:
     def _reset_nucleo():
       # Reinicio mecánico sin snapshot ni confirmación (lo usa también
       # el reinicio de rutina). No toca registros ni pesos.
+      # Sí limpia la sesión finalizada persistida (reset manual).
       try:
         detener_crono()
+      except Exception:
+        pass
+      _sesion_limpiada = False
+      try:
+        _sesion_limpiada = self._limpiar_sesion(info)
       except Exception:
         pass
       if len(series_hechas) > base_series:
@@ -1278,6 +1357,11 @@ class AppEntrenamiento:
           pass
         try:
           sp.set(default_val)
+        except Exception:
+          pass
+      if _sesion_limpiada:
+        try:
+          self.guardar_datos_actuales()
         except Exception:
           pass
       self.comprobar_y_avanzar_ejercicio(rutina_nombre, ejercicio)
@@ -1473,7 +1557,7 @@ class AppEntrenamiento:
     peso_frame = ttk.Frame(card)
     peso_frame.pack(fill=tk.X, pady=4)
 
-    ttk.Label(peso_frame, text="Peso Actual (kg):").pack(
+    ttk.Label(peso_frame, text=md["carga_titulo"]).pack(
         side=tk.LEFT, padx=(0, 5)
     )
     ent_peso = ttk.Entry(peso_frame, width=8)
@@ -1492,7 +1576,9 @@ class AppEntrenamiento:
     fecha_ultima = info.get("fecha_ultima", "Nunca")
 
     def texto_historial(anterior, fecha):
-      ant_txt = "—" if (anterior in (0, 0.0, None, "") and fecha == "Nunca") else f"{anterior} kg"
+      _hm = self._modo_info(info)
+      _hu = _hm["carga_unidad"]
+      ant_txt = "—" if (anterior in (0, 0.0, None, "") and fecha == "Nunca") else f"{anterior} {_hu}"
       return f"Anterior: {ant_txt}  |  Última vez: {fecha}"
 
     peso_hist_frame = ttk.Frame(card)
@@ -1506,15 +1592,17 @@ class AppEntrenamiento:
     lbl_historial.pack(side=tk.LEFT, padx=2)
 
     def guardar_peso():
+      _gm = self._modo_info(info)
+      _gnom, _gu = _gm["carga_nombre"], _gm["carga_unidad"]
       try:
         nuevo_peso = float(ent_peso.get())
       except ValueError:
         messagebox.showerror(
-            "Error", "Ingresa un valor numérico válido para el peso."
+            "Error", f"Ingresa un valor numérico válido para {_gnom.lower()}."
         )
         return
       if nuevo_peso < 0:
-        messagebox.showerror("Error", "El peso no puede ser negativo.")
+        messagebox.showerror("Error", f"{_gnom} no puede ser negativo.")
         return
 
       actual_peso = info.get("peso_actual", 0.0)
@@ -1534,12 +1622,12 @@ class AppEntrenamiento:
         pass
       messagebox.showinfo(
           "Guardado",
-          f"¡Progreso guardado para {ejercicio}!\nNuevo Peso: {nuevo_peso}"
-          f" kg\nAnterior: {actual_peso} kg",
+          f"¡Progreso guardado para {ejercicio}!\nNuevo: {nuevo_peso}"
+          f" {_gu}\nAnterior: {actual_peso} {_gu}",
       )
 
     btn_guardar_peso = ttk.Button(
-        peso_frame, text="Registrar Peso", command=guardar_peso
+        peso_frame, text=md["carga_boton"], command=guardar_peso
     )
     btn_guardar_peso.pack(side=tk.RIGHT, padx=5)
 
