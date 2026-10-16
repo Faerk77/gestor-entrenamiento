@@ -14,7 +14,7 @@ Ideal si entrenas con división por grupos musculares y quieres saber cuándo su
 - **Sesión persistente por día:** lo finalizado queda en verde `FINALIZADO ✔` aunque cierres la app. Solo se reinicia con `↻` o al abrir en un día nuevo.
 - **Conteo de repeticiones:** registra las repes hechas en cada serie con spinbox (0-200). Al finalizar se guarda fecha, peso, detalle por serie y promedio.
 - **Registro de peso y promedio por ejercicio:** panel lateral `Registro` con último peso, promedio, detalle de series, historial de los últimos 4 registros y ciclo congelado del último bloque de 4 al mismo peso.
-- **Aviso de aumentar carga:** si completas 4 registros seguidos al mismo peso con promedio entre 10 y 12 repeticiones, muestra `⬆ Aumentar carga`.
+- **Aviso de aumentar carga/tiempo:** si completas 4 registros seguidos al mismo peso con promedio entre 10 y 12 repeticiones, muestra `⬆ Aumentar carga`. En modo Segundos muestra `⬆ Aumentar tiempo` cuando el promedio >= `Segundos Actuales`.
 - **Peso corporal con historial:** coloca tu peso actual y actualízalo cuando quieras. Guarda fecha y un registro de los últimos 5 pesos para compararlo a lo largo del tiempo, con vista de historial y opción de borrar registro.
 - **Cronómetro de descanso:** temporizador configurable por ejercicio (minutos/segundos), con alarma sonora en Windows y aviso al terminar.
 - **Datos locales:** todo se guarda en `entrenamiento_perfiles_multi.json` junto al script (ignorado por git: son datos personales). Sin cuentas, sin internet.

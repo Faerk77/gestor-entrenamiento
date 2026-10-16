@@ -1,5 +1,12 @@
 # ChangeLog — Gestor de Entrenamiento
 
+## [1.4.0] - 2026-10-16
+- Botón `Finalizar serie` fijo en ambos modos (ya no cambia a
+  `Finalizar segundos`).
+- Aviso en modo Segundos: `⬆ Aumentar tiempo` cuando el promedio >=
+  `Segundos Actuales` con 4 registros seguidos (antes umbral fijo 20
+  con texto de carga).
+
 ## [1.3.0] - 2026-10-16
 - Modo Segundos: la carga pasa a tiempo. `Peso Actual (kg)` /
   `Registrar Peso` cambian a `Segundos Actuales (segs)` /

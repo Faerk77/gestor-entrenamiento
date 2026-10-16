@@ -6,7 +6,7 @@ from tkinter import messagebox, simpledialog, ttk
 
 DATA_FILE = "entrenamiento_perfiles_multi.json"
 
-__version__ = "1.3.0"
+__version__ = "1.4.0"
 
 
 class SeleccionPerfilWindow:
@@ -1124,11 +1124,18 @@ class AppEntrenamiento:
         )
       # Aviso solo con 4 registros nuevos al peso actual: si el peso cambió,
       # la racha se reinicia y el aviso desaparece hasta juntar 4 nuevos.
-      # Repes: 10-12. Segundos: promedio >= 20.
-      if racha == 4 and (
-          (not _mdr["es_segs"] and 10 <= prom_total <= 12)
-          or (_mdr["es_segs"] and prom_total >= 20)
-      ):
+      # Repes: 10-12 => 'Aumentar carga'. Segundos: prom >= segundos actuales
+      # => 'Aumentar tiempo'.
+      if _mdr["es_segs"]:
+        try:
+          _objetivo = float(info.get("peso_actual", 0) or 0)
+        except Exception:
+          _objetivo = 0
+        if racha == 4 and _objetivo > 0 and prom_total >= _objetivo:
+          reg_aviso.config(text=f"⬆ Aumentar tiempo (prom. {_f(prom_total)})")
+        else:
+          reg_aviso.config(text="")
+      elif racha == 4 and 10 <= prom_total <= 12:
         reg_aviso.config(text=f"⬆ Aumentar carga (prom. {_f(prom_total)})")
       else:
         reg_aviso.config(text="")
@@ -1549,7 +1556,7 @@ class AppEntrenamiento:
     btn_tiempo.pack(side=tk.LEFT, padx=3)
 
     btn_finalizar = ttk.Button(
-        card, text=f"Finalizar {et_sing.lower()}", command=finalizar_siguiente_serie,
+        card, text="Finalizar serie", command=finalizar_siguiente_serie,
         padding=(12, 6),
     )
     btn_finalizar.pack(fill=tk.X, pady=5)
