@@ -1,5 +1,12 @@
 # ChangeLog — Gestor de Entrenamiento
 
+## [1.2.0] - 2026-10-16
+- Modo individual por ejercicio Series/Segundos con botón `⏱ Modo` en cada
+  tarjeta: cambia etiquetas `Serie/Series` a `Segundos`, objetivo a
+  `segundos`, spin base 8 a 20, `+ Serie`/`Finalizar` y registros laterales.
+  Aviso de carga: 10-12 repes en modo Series, prom. >=20 en modo Segundos.
+  Campo persistido `modo` (`repes` por defecto para compatibilidad).
+
 ## [1.1.1] - 2026-10-13
 - Fix scroll con rueda: solo desplaza si el contenido excede lo visible
   (antes movía la lista aun con todas las tarjetas ocultas).

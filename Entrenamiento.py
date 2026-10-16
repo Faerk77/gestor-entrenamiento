@@ -6,7 +6,7 @@ from tkinter import messagebox, simpledialog, ttk
 
 DATA_FILE = "entrenamiento_perfiles_multi.json"
 
-__version__ = "1.1.1"
+__version__ = "1.2.0"
 
 
 class SeleccionPerfilWindow:
@@ -465,6 +465,43 @@ class AppEntrenamiento:
     except Exception:
       return None
 
+  @staticmethod
+  def _modo_info(info):
+    # Modo por ejercicio: 'repes' (Series) o 'segs' (Segundos).
+    # Compatibilidad: sin campo => repes.
+    es_segs = info.get("modo", "repes") == "segs"
+    if es_segs:
+      return {
+          "es_segs": True,
+          "sing": "Segundos",
+          "plur": "Segundos",
+          "default_val": 20,
+          "unidad": "segs",
+      }
+    return {
+        "es_segs": False,
+        "sing": "Serie",
+        "plur": "Series",
+        "default_val": 8,
+        "unidad": "repes",
+    }
+
+  def _toggle_modo(self, rutina_nombre, ej_nombre):
+    try:
+      info = self.datos_perfil["rutinas"][rutina_nombre][ej_nombre]
+    except Exception:
+      return
+    actual = info.get("modo", "repes")
+    nuevo = "segs" if actual != "segs" else "repes"
+    info["modo"] = nuevo
+    # Ajustar objetivo por defecto al cambiar (preserva customs).
+    if nuevo == "segs" and info.get("repes") == "10-12":
+      info["repes"] = "20"
+    elif nuevo == "repes" and info.get("repes") == "20":
+      info["repes"] = "10-12"
+    self.guardar_datos_actuales()
+    self.iniciar_interfaz_principal()
+
   def _actualizar_ciclo_congelado(self, info):
     # Congela el último ciclo completado (4 registros seguidos al mismo peso).
     hist = info.get("historial_series", [])
@@ -837,6 +874,13 @@ class AppEntrenamiento:
 
   def crear_tarjeta_ejercicio(self, parent_frame, rutina_nombre, ejercicio, info):
     # Usamos tk.LabelFrame clásico para permitir cambio dinámico de color de fondo (verde finalizado)
+    # Modo individual por ejercicio: 'repes' (Series) o 'segs' (Segundos).
+    if info.get("modo") not in ("repes", "segs"):
+      info["modo"] = "repes"
+    md = self._modo_info(info)
+    et_sing, et_plur = md["sing"], md["plur"]
+    default_val = md["default_val"]
+    unidad = md["unidad"]
     cont_ejercicio = ttk.Frame(parent_frame)
     cont_ejercicio.pack(fill=tk.X, pady=6, padx=5)
 
@@ -892,7 +936,7 @@ class AppEntrenamiento:
     reg_prom = ttk.Label(side_inner, text="Promedio: —", font=("Arial", 9))
     reg_prom.pack(anchor=tk.W)
     reg_series = ttk.Label(
-        side_inner, text="Series: —", font=("Arial", 8), wraplength=185,
+        side_inner, text=f"{et_plur}: —", font=("Arial", 8), wraplength=185,
         justify=tk.LEFT,
     )
     reg_series.pack(anchor=tk.W, pady=(2, 0))
@@ -925,6 +969,8 @@ class AppEntrenamiento:
         ttk.Label(fr, text="Sin registros todavía.",
                   font=("Arial", 9, "italic")).pack(pady=10)
       else:
+        _mdv = self._modo_info(info)
+        _uplur = _mdv["plur"]
         for reg in reversed(hist):
           repes = reg.get("repes", [])
           ttk.Label(
@@ -935,7 +981,7 @@ class AppEntrenamiento:
           ).pack(anchor=tk.W, pady=(6, 0))
           ttk.Label(
               fr,
-              text=("Series: " + " · ".join(str(r) for r in repes)) if repes else "Series: —",
+              text=(_uplur + ": " + " · ".join(str(r) for r in repes)) if repes else f"{_uplur}: —",
               font=("Arial", 9),
               wraplength=330,
               justify=tk.LEFT,
@@ -970,12 +1016,14 @@ class AppEntrenamiento:
     btn_reiniciar_registros.pack(anchor=tk.W, pady=(4, 0))
 
     def render_registro():
+      _mdr = self._modo_info(info)
+      _plur, _uni = _mdr["plur"], _mdr["unidad"]
       hist = info.get("historial_series", [])
       if not hist:
         reg_fecha.config(text="Sin registros")
         reg_peso.config(text="Peso: —")
         reg_prom.config(text="Promedio: —")
-        reg_series.config(text="Series: —")
+        reg_series.config(text=f"{_plur}: —")
         reg_aviso.config(text="")
         reg_ciclo1.config(text="")
         reg_ciclo2.config(text="")
@@ -984,11 +1032,11 @@ class AppEntrenamiento:
       repes = ult.get("repes", [])
       reg_fecha.config(text=str(ult.get("fecha", "—")))
       reg_peso.config(text=f"Peso: {ult.get('peso', 0.0)} kg")
-      reg_prom.config(text=f"Promedio: {ult.get('promedio', 0)} repes")
+      reg_prom.config(text=f"Promedio: {ult.get('promedio', 0)} {_uni}")
       if repes:
-        reg_series.config(text="Series: " + " · ".join(str(r) for r in repes))
+        reg_series.config(text=_plur + ": " + " · ".join(str(r) for r in repes))
       else:
-        reg_series.config(text="Series: —")
+        reg_series.config(text=f"{_plur}: —")
       # Racha actual (registros seguidos al peso más nuevo).
       def _f(x):
         try:
@@ -1029,7 +1077,11 @@ class AppEntrenamiento:
         )
       # Aviso solo con 4 registros nuevos al peso actual: si el peso cambió,
       # la racha se reinicia y el aviso desaparece hasta juntar 4 nuevos.
-      if racha == 4 and 10 <= prom_total <= 12:
+      # Repes: 10-12. Segundos: promedio >= 20.
+      if racha == 4 and (
+          (not _mdr["es_segs"] and 10 <= prom_total <= 12)
+          or (_mdr["es_segs"] and prom_total >= 20)
+      ):
         reg_aviso.config(text=f"⬆ Aumentar carga (prom. {_f(prom_total)})")
       else:
         reg_aviso.config(text="")
@@ -1048,10 +1100,12 @@ class AppEntrenamiento:
 
     info_frame = ttk.Frame(top_card_frame)
     info_frame.pack(side=tk.RIGHT)
+    obj_val = info.get('repes', '20' if md['es_segs'] else '10-12')
+    obj_unit = 'segundos' if md['es_segs'] else 'repeticiones'
     lbl_info_descanso = ttk.Label(
         info_frame,
         text=(
-            f"Objetivo: {info.get('repes', '10-12')} repeticiones  |  Descanso:"
+            f"Objetivo: {obj_val} {obj_unit}  |  Descanso:"
             f" {info.get('descanso', 120)}s"
         ),
         font=("Arial", 9, "italic"),
@@ -1060,6 +1114,19 @@ class AppEntrenamiento:
     lbl_contador = ttk.Label(info_frame, text=f"0/{int(info.get('series', 3))}",
                              font=("Arial", 10, "bold"))
     lbl_contador.pack()
+
+    # Botón individual por ejercicio para cambiar Series <-> Segundos.
+    modo_frame = ttk.Frame(card)
+    modo_frame.pack(fill=tk.X, pady=(0, 2))
+    btn_modo_txt = (
+        "⏱ Modo: Segundos → cambiar a Series"
+        if md["es_segs"] else "⏱ Modo: Series → cambiar a Segundos"
+    )
+    btn_modo = ttk.Button(
+        modo_frame, text=btn_modo_txt,
+        command=lambda r=rutina_nombre, ej=ejercicio: self._toggle_modo(r, ej),
+    )
+    btn_modo.pack(anchor=tk.W)
 
     # Sin fill=X: el bloque (series + contadores + botones) queda centrado.
     series_frame = ttk.Frame(card)
@@ -1082,11 +1149,11 @@ class AppEntrenamiento:
       base_series = num_series
 
     for i in range(num_series):
-      lb = ttk.Label(series_frame, text=f"○ Serie {i+1}", font=("Arial", 10))
+      lb = ttk.Label(series_frame, text=f"○ {et_sing} {i+1}", font=("Arial", 10))
       lb.grid(row=0, column=i, padx=5, pady=2)
       marca_labels.append(lb)
       sp_reps = ttk.Spinbox(series_frame, from_=0, to=200, width=5)
-      sp_reps.set(8)
+      sp_reps.set(default_val)
       sp_reps.grid(row=1, column=i, padx=5, pady=2)
       reps_widgets.append(sp_reps)
       series_hechas.append(False)
@@ -1103,7 +1170,7 @@ class AppEntrenamiento:
       idx = next(i for i, h in enumerate(series_hechas) if not h)
       series_hechas[idx] = True
       try:
-        marca_labels[idx].config(text=f"✔ Serie {idx+1}", foreground="green")
+        marca_labels[idx].config(text=f"✔ {et_sing} {idx+1}", foreground="green")
       except Exception:
         pass
       try:
@@ -1153,7 +1220,7 @@ class AppEntrenamiento:
     def agregar_serie():
       if len(series_hechas) >= 6:
         messagebox.showwarning(
-            "Límite", "Máximo 6 series por ejercicio."
+            "Límite", f"Máximo 6 {et_plur.lower()} por ejercicio."
         )
         return
       # Seleccionar este ejercicio: la nueva serie debe quedar editable.
@@ -1162,10 +1229,10 @@ class AppEntrenamiento:
       except Exception:
         pass
       n = len(series_hechas)
-      lb = ttk.Label(series_frame, text=f"○ Serie {n+1}", font=("Arial", 10))
+      lb = ttk.Label(series_frame, text=f"○ {et_sing} {n+1}", font=("Arial", 10))
       lb.grid(row=0, column=n, padx=5, pady=2)
       sp_nueva = ttk.Spinbox(series_frame, from_=0, to=200, width=5)
-      sp_nueva.set(8)
+      sp_nueva.set(default_val)
       sp_nueva.grid(row=1, column=n, padx=5, pady=2)
       marca_labels.append(lb)
       reps_widgets.append(sp_nueva)
@@ -1201,7 +1268,7 @@ class AppEntrenamiento:
       for i in range(len(series_hechas)):
         series_hechas[i] = False
         try:
-          marca_labels[i].config(text=f"○ Serie {i+1}", foreground="")
+          marca_labels[i].config(text=f"○ {et_sing} {i+1}", foreground="")
         except Exception:
           pass
       for sp in reps_widgets:
@@ -1210,14 +1277,14 @@ class AppEntrenamiento:
         except Exception:
           pass
         try:
-          sp.set(8)
+          sp.set(default_val)
         except Exception:
           pass
       self.comprobar_y_avanzar_ejercicio(rutina_nombre, ejercicio)
 
     def restablecer_ejercicio():
       # Vuelve al valor por defecto: recorta series agregadas de más,
-      # quita palomitas, repes en 8, crono en 00:00, sin FINALIZADO.
+      # quita palomitas, repes/segs al valor base, crono en 00:00, sin FINALIZADO.
       # No toca el peso.
       if not all(series_hechas):
         if not messagebox.askyesno(
@@ -1242,9 +1309,9 @@ class AppEntrenamiento:
         repes_crudas = [_rep(sp) for sp in reps_widgets]
         # Si ya estaba finalizado, el registro se guardó al completar:
         # no duplicar, solo reiniciar. Tampoco guardar si está intacto
-        # (nada hecho y repes en el valor por defecto 8).
+        # (nada hecho y valores en el valor por defecto).
         if not all(series_hechas) and (
-            any(series_hechas) or any(r != 8 for r in repes_crudas)
+            any(series_hechas) or any(r != default_val for r in repes_crudas)
         ):
           # Hechas conservan sus repes; pendientes se guardan en 0.
           repes_vals = [
@@ -1273,7 +1340,7 @@ class AppEntrenamiento:
     btns_series_frame.grid(row=2, column=0, columnspan=num_series, pady=4)
 
     btn_mas_serie = ttk.Button(
-        btns_series_frame, text="+ Serie", width=10, command=agregar_serie
+        btns_series_frame, text=f"+ {et_sing}", width=10, command=agregar_serie
     )
     btn_mas_serie.pack(side=tk.LEFT, padx=5)
     btn_reset_estado = ttk.Button(
@@ -1378,8 +1445,10 @@ class AppEntrenamiento:
         except Exception:
           pass
         try:
+          _mda = self._modo_info(info)
+          _obju = 'segundos' if _mda['es_segs'] else 'repeticiones'
           lbl_info_descanso.config(
-              text=(f"Objetivo: {info.get('repes', '10-12')} repeticiones  |"
+              text=(f"Objetivo: {info.get('repes', '10-12')} {_obju}  |"
                     f" Descanso: {total}s")
           )
         except Exception:
@@ -1396,7 +1465,7 @@ class AppEntrenamiento:
     btn_tiempo.pack(side=tk.LEFT, padx=3)
 
     btn_finalizar = ttk.Button(
-        card, text="Finalizar serie", command=finalizar_siguiente_serie,
+        card, text=f"Finalizar {et_sing.lower()}", command=finalizar_siguiente_serie,
         padding=(12, 6),
     )
     btn_finalizar.pack(fill=tk.X, pady=5)
@@ -1500,6 +1569,10 @@ class AppEntrenamiento:
         "btn_mas_serie": btn_mas_serie,
         "btn_reset_estado": btn_reset_estado,
         "btn_finalizar": btn_finalizar,
+        "btn_modo": btn_modo,
+        "et_sing": et_sing,
+        "et_plur": et_plur,
+        "modo": info.get("modo", "repes"),
         "reset_nucleo": _reset_nucleo,
         "cuerpo": cuerpo,
         "header_name": header_name,
@@ -1590,12 +1663,13 @@ class AppEntrenamiento:
           pass
 
         # Marcas visuales por serie: ✔ verde o ○ pendiente.
+        _et = refs.get("et_sing", "Serie")
         for i, lb in enumerate(refs.get("marca_labels", [])):
           try:
             if hechas[i]:
-              lb.config(text=f"✔ Serie {i+1}", foreground="green")
+              lb.config(text=f"✔ {_et} {i+1}", foreground="green")
             else:
-              lb.config(text=f"○ Serie {i+1}", foreground="")
+              lb.config(text=f"○ {_et} {i+1}", foreground="")
           except Exception:
             pass
 
@@ -1676,6 +1750,7 @@ class AppEntrenamiento:
           "series_base": defaults["series"],
           "repes": defaults["repes"],
           "descanso": defaults["descanso"],
+          "modo": "repes",
           "peso_actual": 0.0,
           "peso_anterior": 0.0,
           "fecha_ultima": "Nunca",

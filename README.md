@@ -10,6 +10,7 @@ Ideal si entrenas con división por grupos musculares y quieres saber cuándo su
 - **Rutinas por grupo muscular:** crea rutinas para Empuje, Tracción, Piernas, FullBody, Torso, Brazo, Cardio o cualquier nombre custom que escribas. Las pestañas se pueden reordenar arrastrando.
 - **Ejercicios propios:** agrega tus propios ejercicios en cada rutina, con objetivo de repeticiones, descanso y peso inicial. También puedes eliminarlos cuando quieras.
 - **Series flexibles:** cada ejercicio parte de una base (por defecto 3) y puedes agregar más series hasta 6 con el botón `+ Serie`. Contador `hechas/total`, marcas visuales ✔/○ y reinicio por ejercicio o por rutina completa.
+- **Modo Series/Segundos:** cada ejercicio tiene botón `⏱ Modo` para medir en repeticiones o en segundos (ej. plancha). Cambia etiquetas a `Segundos`, base de 8 a 20 y registros/promedios a `segs`.
 - **Conteo de repeticiones:** registra las repes hechas en cada serie con spinbox (0-200). Al finalizar se guarda fecha, peso, detalle por serie y promedio.
 - **Registro de peso y promedio por ejercicio:** panel lateral `Registro` con último peso, promedio, detalle de series, historial de los últimos 4 registros y ciclo congelado del último bloque de 4 al mismo peso.
 - **Aviso de aumentar carga:** si completas 4 registros seguidos al mismo peso con promedio entre 10 y 12 repeticiones, muestra `⬆ Aumentar carga`.
